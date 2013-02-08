@@ -1,0 +1,110 @@
+<!doctype html>
+<html ng-app="Twitter">
+<head>
+    <meta charset="utf-8">
+    <title>Tweet Search</title>
+    <script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.0.4/angular.min.js"></script>
+    <script src="http://code.angularjs.org/angular-resource-1.0.0rc4.min.js"></script>
+    <link href="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.3.0/css/bootstrap-combined.min.css" rel="stylesheet">
+</head>
+<body>
+<div ng-controller="TwitterCtrl">
+
+    <div class="hero-unit">
+        <h1><u>Tweet search</u></h1>
+        <br>
+        <div class="input-prepend">
+            <button class="btn btn-primary" ng-click="doSearch()" type="button"><i class=""></i> Search </button>
+            <button class="btn" disabled type="button">Now the latest</button>
+            <input type="number" ng-model="resultsPerPage" placeholder=5 style="border-radius: 0; width: 35px"/>
+            <button class="btn" disabled type="button">Tweets for</button>
+            <input type="text" ng-model="searchTerm" placeholder="grio_sf"/>
+        </div>
+
+    </div>
+
+    <div id="resultsContainer" ng-show="tweets.length > 0">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Tweeter</th>
+                    <th>Tweet</th>
+                    <th>Tweet-time</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr ng-repeat="tweet in tweets">
+                    <td><img src="{{tweet.profile_image_url}}" alt=""> &nbsp; {{tweet.from_user}}</td>
+                    <td>{{tweet.text}}</td>
+                    <td>{{tweet.created_at}}</td>
+                </tr>
+            </tbody>
+        </table>
+        <button class="btn btn-primary" ng-click="loadMore()" style="width: 100%"><i class="icon-arrow-down"></i> Load More </button>
+    </div>
+</div>
+<script type="text/javascript">
+    angular.module('Twitter', ['ngResource']);
+
+    function TwitterCtrl($scope, $resource) {
+
+        //stores the whole list of actual (the "results" field of the JSON response) tweets
+        $scope.tweets = [];
+        //stores only the last "result_per_page" tweets with all the info (original JSON response)
+        $scope.lastTweetsWithInfo = null;
+        //change this if you want more than 5 tweets per time
+        $scope.resultsPerPage = 5;
+        //start from 1, not 0
+        $scope.page = 1;
+        //used to avoid duplicated tweets see https://dev.twitter.com/docs/working-with-timelines
+        $scope.max_id = null;
+        //bound to the input text
+        $scope.searchTerm = "grio_sf";
+
+        //handles http request
+        $scope.twitter = $resource('http://search.twitter.com/:action',
+                {
+                    action:'search.json',
+                    callback:'JSON_CALLBACK',
+                    page: $scope.page,
+                    rpp: $scope.resultsPerPage,
+                    q: $scope.searchTerm
+                },
+                {
+                    get:{method:'JSONP'}
+                }
+        );
+
+        $scope.doSearch = function () {
+            $scope.lastTweetsWithInfo = $scope.twitter.get({q: $scope.searchTerm, rpp: $scope.resultsPerPage}, function(){
+                //reinit the tweet list when a new search is done
+                $scope.tweets = [];
+                updateTweetsAndParams();
+            });
+        };
+
+        $scope.loadMore = function(){
+            $scope.lastTweetsWithInfo = $scope.twitter.get({q:$scope.searchTerm, max_id:$scope.max_id, page: $scope.page, rpp: $scope.resultsPerPage}, function(){
+                updateTweetsAndParams();
+            });
+
+        };
+
+        function updateTweetsAndParams(){
+            //add the last tweets results
+            $scope.tweets = $scope.tweets.concat($scope.lastTweetsWithInfo.results);
+            //increment the page number
+            $scope.page++;
+            //update the last max_id for the following request
+            $scope.max_id = $scope.lastTweetsWithInfo.max_id;
+        }
+
+        //do the search  for the first time
+        $scope.doSearch();
+
+
+    }
+</script>
+
+</body>
+</html>
